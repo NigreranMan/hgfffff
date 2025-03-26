@@ -1,0 +1,109 @@
+local collecting = false
+local guiShown = false
+local gui = nil
+local bondHighlights = {}
+
+-- دالة لإيجاد جميع الباوندات في الفولدر والمسافة أقل من 500
+local function findNearbyBondsInFolder(maxDistance)
+    local nearbyBonds = {}
+    local player = game:GetService("Players").LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local playerPosition = character.HumanoidRootPart.Position
+
+    for _, item in pairs(Workspace.RuntimeItems:GetChildren()) do
+        if item:IsA("Model") and item.Name == "Bond" then
+            local bondPosition = item.PrimaryPart.Position
+            local distance = (playerPosition - bondPosition).magnitude
+            if distance <= maxDistance then
+                table.insert(nearbyBonds, item)
+            end
+        end
+    end
+    return nearbyBonds
+end
+
+-- دالة لتحريك اللاعب إلى جميع الباوندات
+local function collectBonds()
+    local bonds = findNearbyBondsInFolder(500)  -- البحث عن الباوندات ضمن مسافة 500
+    for _, bond in pairs(bonds) do
+        local bondPosition = bond.PrimaryPart.Position
+        character.HumanoidRootPart.CFrame = CFrame.new(bondPosition)
+        -- تفعيل الباوند
+        ReplicatedStorage:WaitForChild("Packages"):WaitForChild("RemotePromise"):WaitForChild("Remotes"):WaitForChild("C_ActivateObject"):FireServer(bond)
+        wait(1)  -- تأخير بين التحركات
+    end
+end
+
+-- دالة لإنشاء واجهة المستخدم
+local function createMainGUI()
+    local gui = Instance.new("ScreenGui")
+    gui.Parent = player:FindFirstChildOfClass("PlayerGui")
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(0.4, 0, 0.1, 0)
+    textLabel.Position = UDim2.new(0.3, 0, 0.4, 0)
+    textLabel.BackgroundTransparency = 0.3
+    textLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textLabel.TextScaled = true
+    textLabel.Text = "تم عثور على باوند اضغط E"
+    textLabel.Parent = gui
+
+    return gui
+end
+
+-- دالة لتحديث عدد الباوندات في الـ GUI
+local function updateBondsGUI()
+    local total = 0
+    local bonds = findNearbyBondsInFolder(500)  -- الحصول على جميع الباوندات في مسافة 500
+    total = #bonds  -- عد عدد الباوندات في المسافة
+    if gui then
+        gui.TextLabel.Text = "عدد الباوندات: " .. total
+    end
+end
+
+-- دالة لإظهار Highlight لجميع الباوندات
+local function showBondHighlights()
+    for _, item in pairs(Workspace.RuntimeItems:GetChildren()) do
+        if item:IsA("Model") and item.Name == "Bond" then
+            local highlight = Instance.new("Highlight")
+            highlight.Parent = item
+            highlight.Adornee = item
+            highlight.OutlineColor = Color3.fromRGB(0, 255, 0)
+            highlight.FillColor = Color3.fromRGB(0, 255, 0)
+            table.insert(bondHighlights, highlight)
+        end
+    end
+end
+
+-- التعامل مع ضغط اللاعب على زر E
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.E and not gameProcessed then
+        if not collecting then
+            collecting = true
+            -- بدء جمع الباوندات
+            collectBonds()  -- جمع جميع الباوندات
+            updateBondsGUI()  -- تحديث الـ GUI بعد جمع الباوندات
+        else
+            -- إيقاف جمع الباوندات
+            collecting = false
+            gui:Destroy()  -- إخفاء الـ GUI بعد الضغط على E
+            guiShown = false
+        end
+    end
+end)
+
+-- التحقق المستمر عن الباوندات في الفولدر
+task.spawn(function()
+    while true do
+        local bonds = findNearbyBondsInFolder(500)  -- الحصول على جميع الباوندات ضمن مسافة 500
+        if #bonds > 0 and not guiShown then
+            -- إظهار الـ GUI إذا كان هناك باوندات
+            gui = createMainGUI()
+            guiShown = true
+        end
+        updateBondsGUI()  -- تحديث عدد الباوندات في الـ GUI
+        showBondHighlights()  -- إظهار الـ Highlight لجميع الباوندات
+        wait(0.5)
+    end
+end)
