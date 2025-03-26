@@ -2,6 +2,7 @@ local collecting = false
 local guiShown = false
 local gui = nil
 local bondHighlights = {}
+local UserInputService = game:GetService("UserInputService")
 
 -- دالة لإيجاد جميع الباوندات في الفولدر والمسافة أقل من 500
 local function findNearbyBondsInFolder(maxDistance)
