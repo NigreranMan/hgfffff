@@ -28,7 +28,7 @@ local function updateBondCount()
         a29.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
         a29.TextColor3 = Color3.fromRGB(255, 255, 255)
         a29.TextScaled = true
-        a29.Text = "Bonds: 0"
+        a29.Text = "Bondas: 0"
         a29.Parent = bondCountGui
     end
 
@@ -42,7 +42,7 @@ local function updateBondCount()
         end
     end
 
-    bondCountGui.TextLabel.Text = "Bonds: " .. bondCount
+    bondCountGui.TextLabel.Text = "Bonads: " .. bondCount
 end
 
 -- إضافة Highlight لكل باوند
