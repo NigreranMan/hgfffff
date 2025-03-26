@@ -1,4 +1,4 @@
-local a1 = game:GetService("Players")
+qlocal a1 = game:GetService("Players")
 local b2 = game:GetService("ReplicatedStorage")
 local c3 = game:GetService("UserInputService")
 local d4 = game:GetService("Workspace")
@@ -8,18 +8,16 @@ local f6 = e5.Character or e5.CharacterAdded:Wait()
 local g7 = f6:WaitForChild("Humanoid")
 local h8 = f6:WaitForChild("HumanoidRootPart")
 
-local i9 = false
-local j10 = false
-local k11 = nil
-
+local collectingBonds = false
 local bondCountGui = nil
+local collectGui = nil
 
 -- تحديث عداد الباوندات في الـ GUI
 local function updateBondCount()
     if not bondCountGui then
         bondCountGui = Instance.new("ScreenGui")
         bondCountGui.Parent = e5:FindFirstChildOfClass("PlayerGui")
-        
+
         local a29 = Instance.new("TextLabel")
         a29.Size = UDim2.new(0.2, 0, 0.05, 0)
         a29.Position = UDim2.new(0.4, 0, 0.05, 0)
@@ -44,168 +42,99 @@ local function updateBondCount()
     bondCountGui.TextLabel.Text = "Bonds: " .. bondCount
 end
 
--- إضافة Highlight لكل باوند
-local function highlightBonds()
-    for _, bond in pairs(d4.RuntimeItems:GetChildren()) do
-        if bond:IsA("Model") and bond.Name == "Bond" then
-            local distance = (h8.Position - bond.PrimaryPart.Position).Magnitude
-            if distance <= 500 then
-                if not bond:FindFirstChild("Highlight") then
-                    local highlight = Instance.new("Highlight")
-                    highlight.Parent = bond
-                    highlight.FillColor = Color3.fromRGB(255, 255, 0)
-                    highlight.FillTransparency = 0.7
-                    highlight.OutlineTransparency = 1
-                end
-            elseif bond:FindFirstChild("Highlight") then
-                bond.Highlight:Destroy()
-            end
-        end
-    end
-end
-
--- البحث المستمر عن الباوندات القريبة وتحديث الـ GUI
-task.spawn(function()
-    while true do
-        updateBondCount()  -- تحديث عداد الباوندات
-        highlightBonds()    -- تحديث تأثير الـ Highlight للباوندات القريبة
-        wait(1)  -- التحديث كل ثانية
-    end
-end)
-
--- البحث عن أقرب Bond
-local function findClosestBond()
-    local closestBond = nil
-    local closestDistance = 500
-
-    for _, bond in pairs(d4.RuntimeItems:GetChildren()) do
-        if bond:IsA("Model") and bond.Name == "Bond" then
-            local bondPart = bond.PrimaryPart or bond:FindFirstChild("HumanoidRootPart")
-            if bondPart then
-                local distance = (h8.Position - bondPart.Position).Magnitude
-                if distance < closestDistance then
-                    closestDistance = distance
-                    closestBond = bond
-                end
-            end
-        end
-    end
-
-    return closestBond
-end
-
--- دالة لتحريك اللاعب نحو الهدف
-local function moveTo(humanoid, targetPoint, andThen)
-    local targetReached = false
-
-    -- listen for the humanoid reaching its target
-    local connection
-    connection = humanoid.MoveToFinished:Connect(function(reached)
-        targetReached = true
-        connection:Disconnect()
-        connection = nil
-        if andThen then
-            andThen(reached)
-        end
-    end)
-
-    -- start walking
-    humanoid:MoveTo(targetPoint)
-
-    -- execute on a new thread so as to not yield function
-    task.spawn(function()
-        while not targetReached do
-            -- does the humanoid still exist?
-            if not (humanoid and humanoid.Parent) then
-                break
-            end
-            -- has the target changed?
-            if humanoid.WalkToPoint ~= targetPoint then
-                break
-            end
-            -- refresh the timeout
-            humanoid:MoveTo(targetPoint)
-            task.wait(6)
-        end
-
-        -- disconnect the connection if it is still connected
-        if connection then
-            connection:Disconnect()
-            connection = nil
-        end
-    end)
-end
-
--- تفعيل سكربت استلام الباوند بعد الوصول
-local function activateBondScript(bond)
-    local args = {bond}
-    b2:WaitForChild("Packages"):WaitForChild("RemotePromise"):WaitForChild("Remotes"):WaitForChild("C_ActivateObject"):FireServer(unpack(args))
-    print("Bond collected.")
-end
-
--- تحريك اللاعب إلى الـ Bond
-local function moveToTargetAndActivate(bond)
-    moveTo(g7, bond.PrimaryPart.Position, function(reached)
-        if reached then
-            activateBondScript(bond)
-        end
-    end)
-end
-
--- إظهار واجهة الـ "Press E to collect Bond"
+-- إنشاء أو تحديث الـ GUI الخاص بزر E
 local function showCollectGui()
-    if not j10 then
-        j10 = true
-        local gui = Instance.new("ScreenGui")
-        gui.Parent = e5:FindFirstChildOfClass("PlayerGui")
+    if not collectGui then
+        collectGui = Instance.new("ScreenGui")
+        collectGui.Parent = e5:FindFirstChildOfClass("PlayerGui")
 
         local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(0.4, 0, 0.1, 0)
-        label.Position = UDim2.new(0.3, 0, 0.4, 0)
+        label.Size = UDim2.new(0.3, 0, 0.05, 0)
+        label.Position = UDim2.new(0.35, 0, 0.5, 0)
         label.BackgroundTransparency = 0.3
         label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
         label.TextColor3 = Color3.fromRGB(255, 255, 255)
         label.TextScaled = true
-        label.Text = "Press E to start collecting Bonds"
-        label.Parent = gui
-
-        k11 = gui
+        label.Text = "اضغط E لجمع الباوندات"
+        label.Parent = collectGui
     end
 end
 
--- إخفاء واجهة الـ "Press E to collect Bond"
+-- إخفاء الـ GUI الخاص بزر E
 local function hideCollectGui()
-    if j10 then
-        j10 = false
-        if k11 then
-            k11:Destroy()
-        end
+    if collectGui then
+        collectGui:Destroy()
+        collectGui = nil
     end
 end
 
--- التحقق من المسافة بين اللاعب والباوند وعرض واجهة الـ E
-task.spawn(function()
-    while true do
-        local closestBond = findClosestBond()
-        if closestBond then
-            local distance = (h8.Position - closestBond.PrimaryPart.Position).Magnitude
+-- البحث عن جميع الباوندات داخل نطاق 500
+local function getAllBonds()
+    local bonds = {}
+    for _, bond in pairs(d4.RuntimeItems:GetChildren()) do
+        if bond:IsA("Model") and bond.Name == "Bond" then
+            local distance = (h8.Position - bond.PrimaryPart.Position).Magnitude
             if distance <= 500 then
-                showCollectGui()
-            else
-                hideCollectGui()
+                table.insert(bonds, bond)
             end
         end
-        wait(0.5)
+    end
+    return bonds
+end
+
+-- تحريك اللاعب إلى نقطة الهدف بدون انتظار
+local function moveTo(humanoid, targetPoint)
+    humanoid:MoveTo(targetPoint)
+end
+
+-- تفعيل سكربت استلام الباوند
+local function activateBond(bond)
+    local args = {bond}
+    b2.Packages.RemotePromise.Remotes.C_ActivateObject:FireServer(unpack(args))
+    print("Bond collected!")
+end
+
+-- جمع جميع الباوندات القريبة بأقصى سرعة
+local function collectAllBonds()
+    if collectingBonds then return end
+    collectingBonds = true
+
+    hideCollectGui() -- ✅ إخفاء GUI "اضغط E لجمع الباوندات" فورًا
+
+    local bonds = getAllBonds()
+    if #bonds == 0 then
+        print("No Bonds found!")
+        collectingBonds = false
+        return
+    end
+
+    for _, bond in ipairs(bonds) do
+        moveTo(g7, bond.PrimaryPart.Position) -- ✅ التحرك فورًا بدون انتظار
+        activateBond(bond) -- ✅ استلام الباوند فور الوصول
+    end
+
+    collectingBonds = false
+end
+
+-- تشغيل البحث المستمر عن الباوندات وإظهار GUI الـ E
+task.spawn(function()
+    while true do
+        updateBondCount() -- تحديث العداد باستمرار
+
+        local bonds = getAllBonds()
+        if #bonds > 0 then
+            showCollectGui()
+        else
+            hideCollectGui()
+        end
+
+        task.wait(1)
     end
 end)
 
--- عند الضغط على E، يبدأ أو يتوقف البحث عن الباوندات
+-- عند الضغط على E، يبدأ بجمع كل الباوندات القريبة
 c3.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.E and not gameProcessed then
-        local closestBond = findClosestBond()
-        if closestBond then
-            moveToTargetAndActivate(closestBond)
-            hideCollectGui()  -- إخفاء الـ GUI بعد الضغط على E
-        end
+        collectAllBonds()
     end
 end)
