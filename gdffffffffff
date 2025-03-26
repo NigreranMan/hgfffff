@@ -13,6 +13,7 @@ local j10 = false
 local k11 = nil
 
 local bondCountGui = nil
+local collectingBonds = false -- Flag to check if we are already collecting bonds
 
 -- تحديث عداد الباوندات في الـ GUI
 local function updateBondCount()
@@ -74,24 +75,20 @@ task.spawn(function()
 end)
 
 -- البحث عن أقرب Bond
-local function findClosestBond()
-    local closestBond = nil
-    local closestDistance = 500
-
+local function findBondsInRange()
+    local bondsInRange = {}
     for _, bond in pairs(d4.RuntimeItems:GetChildren()) do
         if bond:IsA("Model") and bond.Name == "Bond" then
             local bondPart = bond.PrimaryPart or bond:FindFirstChild("HumanoidRootPart")
             if bondPart then
                 local distance = (h8.Position - bondPart.Position).Magnitude
-                if distance < closestDistance then
-                    closestDistance = distance
-                    closestBond = bond
+                if distance <= 500 then
+                    table.insert(bondsInRange, bond)
                 end
             end
         end
     end
-
-    return closestBond
+    return bondsInRange
 end
 
 -- دالة لتحريك اللاعب نحو الهدف
@@ -166,7 +163,7 @@ local function showCollectGui()
         label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
         label.TextColor3 = Color3.fromRGB(255, 255, 255)
         label.TextScaled = true
-        label.Text = "Press E to start collecting Bonds"
+        label.Text = "Press E to collect all Bonds"
         label.Parent = gui
 
         k11 = gui
@@ -183,29 +180,30 @@ local function hideCollectGui()
     end
 end
 
--- التحقق من المسافة بين اللاعب والباوند وعرض واجهة الـ E
-task.spawn(function()
-    while true do
-        local closestBond = findClosestBond()
-        if closestBond then
-            local distance = (h8.Position - closestBond.PrimaryPart.Position).Magnitude
-            if distance <= 500 then
-                showCollectGui()
-            else
-                hideCollectGui()
-            end
+-- عند الضغط على E، يبدأ البحث عن جميع الباوندات
+c3.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.E and not gameProcessed and not collectingBonds then
+        collectingBonds = true
+        hideCollectGui()  -- إخفاء الـ GUI بعد الضغط على E
+
+        local bondsInRange = findBondsInRange()
+        for _, bond in pairs(bondsInRange) do
+            moveToTargetAndActivate(bond)  -- تحريك اللاعب إلى كل باوند
         end
-        wait(0.5)
+
+        collectingBonds = false  -- عند الانتهاء من جمع كل الباوندات
     end
 end)
 
--- عند الضغط على E، يبدأ أو يتوقف البحث عن الباوندات
-c3.InputBegan:Connect(function(input, gameProcessed)
-    if input.KeyCode == Enum.KeyCode.E and not gameProcessed then
-        local closestBond = findClosestBond()
-        if closestBond then
-            moveToTargetAndActivate(closestBond)
-            hideCollectGui()  -- إخفاء الـ GUI بعد الضغط على E
+-- إظهار واجهة الضغط على E عندما تكون هناك باوندات في المسافة
+task.spawn(function()
+    while true do
+        local bondsInRange = findBondsInRange()
+        if #bondsInRange > 0 then
+            showCollectGui()
+        else
+            hideCollectGui()
         end
+        wait(1)
     end
 end)
