@@ -49,7 +49,7 @@ local function highlightBonds()
     for _, bond in pairs(d4.RuntimeItems:GetChildren()) do
         if bond:IsA("Model") and bond.Name == "Bond" then
             local distance = (h8.Position - bond.PrimaryPart.Position).Magnitude
-            if distance <= 300 then
+            if distance <= 500 then
                 if not bond:FindFirstChild("Highlight") then
                     local highlight = Instance.new("Highlight")
                     highlight.Parent = bond
@@ -205,6 +205,7 @@ c3.InputBegan:Connect(function(input, gameProcessed)
         local closestBond = findClosestBond()
         if closestBond then
             moveToTargetAndActivate(closestBond)
+            hideCollectGui()  -- إخفاء الـ GUI بعد الضغط على E
         end
     end
 end)
