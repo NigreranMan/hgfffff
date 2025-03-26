@@ -3,6 +3,19 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
+local Klayer = game:GetService("Players").LocalPlayer
+local runservice = game:GetService("RunService")
+runservice.Stepped:Connect(function()
+        if Klayer.Character then
+                for i,v in pairs(Klayer.Character:GetDescendants()) do
+                    if v:IsA("BasePart") then
+                        v.CanCollide = false
+                    end
+            end
+        end
+    end)
+
+
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
