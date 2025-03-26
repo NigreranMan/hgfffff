@@ -28,7 +28,7 @@ local function updateBondCount()
         a29.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
         a29.TextColor3 = Color3.fromRGB(255, 255, 255)
         a29.TextScaled = true
-        a29.Text = "Bondas: 0"
+        a29.Text = "Bonds: 0"
         a29.Parent = bondCountGui
     end
 
@@ -42,7 +42,7 @@ local function updateBondCount()
         end
     end
 
-    bondCountGui.TextLabel.Text = "Bonads: " .. bondCount
+    bondCountGui.TextLabel.Text = "Bonds: " .. bondCount
 end
 
 -- إضافة Highlight لكل باوند
@@ -74,7 +74,7 @@ task.spawn(function()
     end
 end)
 
--- البحث عن أقرب Bond
+-- البحث عن جميع الباوندات القريبة
 local function findBondsInRange()
     local bondsInRange = {}
     for _, bond in pairs(d4.RuntimeItems:GetChildren()) do
@@ -186,6 +186,7 @@ c3.InputBegan:Connect(function(input, gameProcessed)
         collectingBonds = true
         hideCollectGui()  -- إخفاء الـ GUI بعد الضغط على E
 
+        -- العثور على جميع الباوندات القريبة وتحريك اللاعب نحو كل واحد
         local bondsInRange = findBondsInRange()
         for _, bond in pairs(bondsInRange) do
             moveToTargetAndActivate(bond)  -- تحريك اللاعب إلى كل باوند
