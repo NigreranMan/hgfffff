@@ -9,24 +9,29 @@ local humanoid = character:WaitForChild("Humanoid")
 local rootPart = character:WaitForChild("HumanoidRootPart")
 
 local collecting = false
+local bondCountGui = nil
 
--- تحديث عداد الباوندات في الـ GUI
-local function updateBondCount()
-    if not player.PlayerGui:FindFirstChild("BondGUI") then
-        local bondGui = Instance.new("ScreenGui")
-        bondGui.Name = "BondGUI"
-        bondGui.Parent = player:FindFirstChildOfClass("PlayerGui")
+-- إنشاء الـ GUI لعرض عدد الباوندات
+local function createBondCountGui()
+    if not bondCountGui then
+        bondCountGui = Instance.new("ScreenGui")
+        bondCountGui.Parent = player:FindFirstChildOfClass("PlayerGui")
 
-        local bondLabel = Instance.new("TextLabel")
-        bondLabel.Name = "BondLabel"
-        bondLabel.Size = UDim2.new(0.2, 0, 0.05, 0)
-        bondLabel.Position = UDim2.new(0.4, 0, 0.05, 0)
-        bondLabel.BackgroundTransparency = 0.3
-        bondLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        bondLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        bondLabel.TextScaled = true
-        bondLabel.Parent = bondGui
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0.2, 0, 0.05, 0)
+        label.Position = UDim2.new(0.4, 0, 0.05, 0)
+        label.BackgroundTransparency = 0.3
+        label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.TextScaled = true
+        label.Text = "Bonds:: 0"
+        label.Parent = bondCountGui
     end
+end
+
+-- تحديث عدد الباوندات في الـ GUI
+local function updateBondCount()
+    if not bondCountGui then createBondCountGui() end
 
     local bondCount = 0
     for _, bond in pairs(Workspace.RuntimeItems:GetChildren()) do
@@ -38,10 +43,10 @@ local function updateBondCount()
         end
     end
 
-    player.PlayerGui.BondGUI.BondLabel.Text = "Bonds: " .. bondCount
+    bondCountGui.TextLabel.Text = "Bonds: " .. bondCount
 end
 
--- إضافة Highlight لكل باوند
+-- إضافة Highlight للباوندات ضمن 500 متر
 local function highlightBonds()
     for _, bond in pairs(Workspace.RuntimeItems:GetChildren()) do
         if bond:IsA("Model") and bond.Name == "Bond" then
@@ -61,24 +66,18 @@ local function highlightBonds()
     end
 end
 
--- إيجاد جميع الباوندات القريبة وترتيبها حسب المسافة
-local function getAllBonds()
-    local bonds = {}
-    for _, bond in pairs(Workspace.RuntimeItems:GetChildren()) do
-        if bond:IsA("Model") and bond.Name == "Bond" then
-            local distance = (rootPart.Position - bond.PrimaryPart.Position).Magnitude
-            if distance <= 500 then
-                table.insert(bonds, {bond = bond, distance = distance})
-            end
-        end
+-- تحديث مستمر للـ GUI والـ Highlight
+task.spawn(function()
+    while true do
+        updateBondCount()
+        highlightBonds()
+        task.wait(1)
     end
-    table.sort(bonds, function(a, b) return a.distance < b.distance end) -- ترتيب من الأقرب للأبعد
-    return bonds
-end
+end)
 
--- تحريك اللاعب نحو الهدف
-local function moveTo(humanoid, targetPoint, callback)
-    humanoid:MoveTo(targetPoint)
+-- تحريك اللاعب إلى الهدف
+local function moveTo(targetPosition, callback)
+    humanoid:MoveTo(targetPosition)
     humanoid.MoveToFinished:Connect(function(reached)
         if reached and callback then
             callback()
@@ -86,88 +85,40 @@ local function moveTo(humanoid, targetPoint, callback)
     end)
 end
 
--- تفعيل سكربت استلام الباوند
+-- استلام الباوند بدون أي تأخير
 local function activateBondScript(bond)
     ReplicatedStorage:WaitForChild("Packages"):WaitForChild("RemotePromise"):WaitForChild("Remotes"):WaitForChild("C_ActivateObject"):FireServer(bond)
 end
 
--- التحرك إلى كل باوند واحدًا تلو الآخر
+-- جمع جميع الباوندات واحداً تلو الآخر **بدون أي تأخير**
 local function collectAllBonds()
     if collecting then return end
     collecting = true
 
-    local bonds = getAllBonds()
-    if #bonds == 0 then
+    local function collectNext()
+        for _, bond in ipairs(Workspace.RuntimeItems:GetChildren()) do
+            if bond:IsA("Model") and bond.Name == "Bond" and bond.PrimaryPart then
+                local distance = (rootPart.Position - bond.PrimaryPart.Position).Magnitude
+                if distance <= 500 then
+                    moveTo(bond.PrimaryPart.Position, function()
+                        activateBondScript(bond)
+                        collectNext() -- الانتقال فورًا إلى الباوند التالي **بدون أي تأخير**
+                    end)
+                    return
+                end
+            end
+        end
+
+        -- توقف إذا لم يتم العثور على المزيد من الباوندات
         collecting = false
-        return
     end
 
-    local function collectNext(index)
-        if index > #bonds then
-            collecting = false
-            return
-        end
-
-        local bond = bonds[index].bond
-        if bond and bond.PrimaryPart then
-            moveTo(humanoid, bond.PrimaryPart.Position, function()
-                activateBondScript(bond)
-                collectNext(index + 1) -- الانتقال للباوند التالي
-            end)
-        else
-            collectNext(index + 1) -- إذا لم يكن الباوند صالحًا، انتقل للذي يليه
-        end
-    end
-
-    collectNext(1) -- ابدأ من أول باوند
+    collectNext() -- بدء جمع الباوندات
 end
 
--- عرض واجهة الضغط على E
-local function showPressEGui()
-    if player.PlayerGui:FindFirstChild("PressEGui") then return end
-
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "PressEGui"
-    gui.Parent = player:FindFirstChildOfClass("PlayerGui")
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.4, 0, 0.1, 0)
-    label.Position = UDim2.new(0.3, 0, 0.4, 0)
-    label.BackgroundTransparency = 0.3
-    label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextScaled = true
-    label.Text = "Press E to collect Bonds"
-    label.Parent = gui
-end
-
--- إخفاء واجهة الضغط على E
-local function hidePressEGui()
-    local gui = player.PlayerGui:FindFirstChild("PressEGui")
-    if gui then
-        gui:Destroy()
-    end
-end
-
--- البحث عن الباوندات القريبة باستمرار
-task.spawn(function()
-    while true do
-        local bonds = getAllBonds()
-        if #bonds > 0 then
-            showPressEGui()
-        else
-            hidePressEGui()
-        end
-        updateBondCount()
-        highlightBonds()
-        wait(1)
-    end
-end)
-
--- عند الضغط على E، يبدأ جمع الباوندات كلها
+-- عند الضغط على E، يبدأ جمع كل الباوندات القريبة
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if input.KeyCode == Enum.KeyCode.E and not gameProcessed then
-        hidePressEGui()
+    if input.KeyCode == Enum.KeyCode.E and not gameProcessed and not collecting then
         collectAllBonds()
     end
 end)
